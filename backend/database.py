@@ -1,20 +1,15 @@
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from config import settings
 
+IS_SQLITE = settings.DATABASE_URL.startswith("sqlite")
+
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    connect_args={"check_same_thread": False} if IS_SQLITE else {},
+    **({} if IS_SQLITE else {"pool_size": 10, "max_overflow": 20}),
 )
-
-# Enable pgvector extension on first connect
-@event.listens_for(engine, "connect")
-def connect(dbapi_conn, _):
-    dbapi_conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
-    dbapi_conn.commit()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()

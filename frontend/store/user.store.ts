@@ -6,6 +6,27 @@ import { persist } from "zustand/middleware";
 import { authApi, UserOut } from "@/lib/api";
 import { saveSession, clearSession } from "@/lib/auth";
 
+
+
+//added this part- 11-29
+// Add this helper at the top of user.store.ts
+function setCookie(name: string, value: string, days = 30) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${name}=${value};path=/;max-age=${days * 86400};SameSite=Lax`;
+}
+
+function deleteCookie(name: string) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${name}=;path=/;max-age=0`;
+}
+
+// In the login action, after saveSession(res):
+setCookie("hf_token", res.access_token);
+
+// In the logout action, after clearSession():
+deleteCookie("hf_token");
+
+//till here
 interface UserState {
   user:       UserOut | null;
   token:      string | null;
