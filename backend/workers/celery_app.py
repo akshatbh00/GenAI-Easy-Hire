@@ -23,3 +23,13 @@ celery_app.conf.update(
     worker_prefetch_multiplier=1,    # fairness for long tasks
     task_acks_late=True,
 )
+
+# Add at the bottom of your existing celery_app.py
+from celery.schedules import crontab
+
+celery_app.conf.beat_schedule = {
+    "nightly-benchmark-refresh": {
+        "task":     "workers.benchmark_tasks.nightly_benchmark_refresh",
+        "schedule": crontab(hour=2, minute=0),   # 2 AM IST
+    },
+}
