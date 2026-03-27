@@ -16,6 +16,7 @@ SECTION_PATTERNS = [
     (r"publications?|research", "research"),
 ]
 
+
 @dataclass
 class Chunk:
     section: str
