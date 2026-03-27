@@ -3,23 +3,30 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from database import get_db
 from api.pipeline.service import PipelineService
+from api.auth.routes import require_recruiter
 from models import PipelineStage
 
-router = APIRouter(prefix="/pipeline", tags=["pipeline"])
+router = APIRouter(prefix="/pipeline", tags=["Pipeline"])
 svc = PipelineService()
 
 
 class MoveStageRequest(BaseModel):
     application_id: str
-    to_stage: PipelineStage
-    notes: str | None = None
+    to_stage:       PipelineStage
+    notes:          str | None = None
 
 
 @router.post("/move")
-def move_stage(req: MoveStageRequest, db: Session = Depends(get_db)):
-    # TODO: inject current recruiter from JWT
+def move_stage(
+    req: MoveStageRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_recruiter),
+):
     try:
-        app = svc.move_stage(req.application_id, req.to_stage, "recruiter-id", req.notes, db)
+        app = svc.move_stage(
+            req.application_id, req.to_stage,
+            str(current_user.id), req.notes, db
+        )
         return {"stage": app.current_stage, "highest": app.highest_stage}
     except ValueError as e:
         raise HTTPException(404, str(e))
