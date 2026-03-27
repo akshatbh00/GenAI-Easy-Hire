@@ -113,7 +113,7 @@ class ScoreCalculator:
             exp_fit        * self.WEIGHTS["experience"]
         )
         return round(score * 100, 1)
-```
+"""
 
 ---
 
@@ -127,4 +127,4 @@ backend/
 │       └── routes.py         ← new
 ├── migrations/
 │   └── env.py                ← new (Alembic)
-└── .env.example              ← new
+└── .env.example              ← new"""

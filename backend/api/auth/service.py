@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from uuid import UUID
-
-from jose import jwt, JWTError
+import jwt
+from jwt.exceptions import InvalidTokenError as JWTError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
