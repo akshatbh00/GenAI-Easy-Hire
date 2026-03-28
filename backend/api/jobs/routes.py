@@ -93,3 +93,18 @@ def get_candidates_for_job(
     """AI-ranked candidate list for a job posting."""
     from ai.matching.job_matcher import JobMatcher
     return JobMatcher().rank_candidates_for_job(str(job_id), db, limit)
+
+
+
+#% job match
+@router.get("/{job_id}/match")
+def get_match_breakdown(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    % match breakdown for a job BEFORE applying.
+    Shows skills, experience, location match separately.
+    """
+    return service.get_match_breakdown(job_id, str(current_user.id), db)

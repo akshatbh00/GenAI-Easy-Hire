@@ -46,3 +46,13 @@ def mark_read(
     """Mark all unread notifications as read."""
     service.mark_notifications_read(current_user.id, db)
     return {"message": "Notifications marked as read"}
+
+
+#% profile completeness
+@router.get("/profile/completeness")
+def profile_completeness(
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Profile completeness score with actionable nudges."""
+    return service.get_profile_completeness(str(current_user.id), db)

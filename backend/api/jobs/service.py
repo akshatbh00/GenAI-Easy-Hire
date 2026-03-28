@@ -122,3 +122,94 @@ def delete_job(job_id: UUID, db: Session):
         raise HTTPException(404, "Job not found")
     job.is_active = False   # soft delete
     db.commit()
+
+#% JD Match
+def get_match_breakdown(
+    job_id:  str,
+    user_id: str,
+    db:      Session,
+) -> dict:
+    """
+    Returns % match breakdown BEFORE applying.
+    Shows skills, experience, location match separately.
+    """
+    from models import Resume, Job
+
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    resume = db.query(Resume).filter(
+        Resume.user_id   == user_id,
+        Resume.is_active == True,
+    ).first()
+    if not resume:
+        return {
+            "overall":    0,
+            "skills":     0,
+            "experience": 0,
+            "location":   0,
+            "breakdown":  {},
+            "missing_skills": [],
+            "message": "Upload a resume to see your match score",
+        }
+
+    parsed = resume.parsed_data or {}
+
+    # 1. Skills match
+    candidate_skills = set(s.lower() for s in parsed.get("skills", []))
+    required_skills  = set(s.lower() for s in (job.requirements or []))
+    if required_skills:
+        matched_skills  = candidate_skills & required_skills
+        missing_skills  = sorted(required_skills - candidate_skills)
+        skills_score    = round(len(matched_skills) / len(required_skills) * 100, 1)
+    else:
+        matched_skills  = set()
+        missing_skills  = []
+        skills_score    = 70.0   # no requirements = neutral score
+
+    # 2. Experience match (rough heuristic)
+    candidate_exp  = parsed.get("total_experience_years", 0) or 0
+    # extract years from job description
+    import re
+    exp_mentions   = re.findall(r"(\d+)\+?\s*years?", (job.description or ""), re.IGNORECASE)
+    required_exp   = int(exp_mentions[0]) if exp_mentions else 0
+    if required_exp:
+        exp_score  = min(100.0, (candidate_exp / required_exp) * 100)
+    else:
+        exp_score  = 80.0   # no exp mentioned = neutral
+
+    # 3. Location match
+    if job.remote_ok:
+        location_score = 100.0
+    elif job.location and parsed.get("location"):
+        job_loc        = job.location.lower()
+        cand_loc       = parsed.get("location", "").lower()
+        location_score = 100.0 if any(w in job_loc for w in cand_loc.split()) else 40.0
+    else:
+        location_score = 60.0   # unknown = neutral
+
+    # 4. Weighted overall
+    overall = round(
+        skills_score    * 0.50 +
+        exp_score       * 0.30 +
+        location_score  * 0.20,
+        1
+    )
+
+    return {
+        "overall":         overall,
+        "skills":          skills_score,
+        "experience":      round(exp_score, 1),
+        "location":        location_score,
+        "matched_skills":  sorted(matched_skills)[:10],
+        "missing_skills":  missing_skills[:10],
+        "candidate_exp":   candidate_exp,
+        "required_exp":    required_exp,
+        "remote_ok":       job.remote_ok,
+        "breakdown": {
+            "skills_weight":     "50%",
+            "experience_weight": "30%",
+            "location_weight":   "20%",
+        }
+    }
