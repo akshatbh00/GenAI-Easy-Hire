@@ -91,14 +91,23 @@ class PipelineService:
     def get_pipeline_for_job(self, job_id: str, db: Session) -> dict:
         apps = db.query(Application).filter(Application.job_id == job_id).all()
         kanban = {stage.value: [] for stage in PipelineStage}
+        kanban["insider_referred"] = []   # ← new section
+
         for app in apps:
-            kanban[app.current_stage.value].append({
+            entry = {
                 "application_id": str(app.id),
                 "user_id":        str(app.user_id),
                 "match_score":    app.match_score,
                 "benchmark_score":app.benchmark_score,
                 "applied_at":     app.created_at.isoformat(),
-            })
+                "is_referred":    bool(app.notes and "INSIDER_REFERRED" in (app.notes or "")),
+            }
+        kanban[app.current_stage.value].append(entry)
+
+        # also add to referred section if insider referred
+        if app.notes and "INSIDER_REFERRED" in app.notes:
+            kanban["insider_referred"].append(entry)
+
         return kanban
 
     def _add_to_selected_pool(self, app: Application, db: Session):

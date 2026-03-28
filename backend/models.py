@@ -20,7 +20,7 @@ except ImportError:
 
 def uuid_pk():
     return Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    
+
 def now():
     return Column(DateTime, default=datetime.utcnow)
 
@@ -105,7 +105,7 @@ class Resume(Base):
     parsed_data = Column(JSON)
     ats_score   = Column(Float)
     ats_report  = Column(JSON)
-    embedding   = Column(Text)        # stored as JSON string in SQLite
+    embedding   = Column(Text)
     is_active   = Column(Boolean, default=True)
     created_at  = now()
 
@@ -119,7 +119,7 @@ class ResumeChunk(Base):
     resume_id   = Column(String(36), ForeignKey("resumes.id"))
     section     = Column(String)
     content     = Column(Text)
-    embedding   = Column(Text)        # JSON string in SQLite
+    embedding   = Column(Text)
     chunk_index = Column(Integer)
 
     resume = relationship("Resume", back_populates="chunks")
@@ -137,7 +137,7 @@ class Job(Base):
     remote_ok    = Column(Boolean, default=False)
     salary_min   = Column(Integer)
     salary_max   = Column(Integer)
-    embedding    = Column(Text)       # JSON string in SQLite
+    embedding    = Column(Text)
     is_active    = Column(Boolean, default=True)
     source       = Column(String, default="internal")
     source_url   = Column(String)
@@ -186,7 +186,7 @@ class SelectedPoolEntry(Base):
     resume_id  = Column(String(36), ForeignKey("resumes.id"))
     job_id     = Column(String(36), ForeignKey("jobs.id"))
     job_title  = Column(String)
-    embedding  = Column(Text)         # JSON string in SQLite
+    embedding  = Column(Text)
     created_at = now()
 
 
@@ -209,15 +209,50 @@ class InAppNotification(Base):
     message        = Column(Text)
     is_read        = Column(Boolean, default=False)
     created_at     = now()
-#adding referalls
+
+
 class Referral(Base):
     __tablename__ = "referrals"
-    id              = uuid_pk()
-    referrer_id     = Column(String(36), ForeignKey("users.id"))  # who shared
-    referred_id     = Column(String(36), ForeignKey("users.id"), nullable=True)  # who signed up
-    referral_code   = Column(String(20), unique=True, index=True)
-    job_id          = Column(String(36), ForeignKey("jobs.id"), nullable=True)  # optional job referral
-    status          = Column(String, default="pending")  # pending/signed_up/applied/hired
-    reward_granted  = Column(Boolean, default=False)
-    created_at      = now()
-    updated_at      = Column(DateTime, onupdate=datetime.utcnow)
+    id             = uuid_pk()
+    referrer_id    = Column(String(36), ForeignKey("users.id"))
+    referred_id    = Column(String(36), ForeignKey("users.id"), nullable=True)
+    referral_code  = Column(String(20), unique=True, index=True)
+    job_id         = Column(String(36), ForeignKey("jobs.id"), nullable=True)
+    status         = Column(String, default="pending")
+    reward_granted = Column(Boolean, default=False)
+    created_at     = now()
+    updated_at     = Column(DateTime, onupdate=datetime.utcnow)
+
+
+class UserWorkHistory(Base):
+    __tablename__ = "user_work_history"
+    id               = uuid_pk()
+    user_id          = Column(String(36), ForeignKey("users.id"))
+    company_name     = Column(String, nullable=False)
+    is_current       = Column(Boolean, default=True)
+    is_open_to_refer = Column(Boolean, default=True)
+    network_visible  = Column(Boolean, default=True)
+    created_at       = now()
+
+
+class InsiderReferralRequest(Base):
+    __tablename__ = "insider_referral_requests"
+    id             = uuid_pk()
+    requester_id   = Column(String(36), ForeignKey("users.id"))
+    insider_id     = Column(String(36), ForeignKey("users.id"))
+    job_id         = Column(String(36), ForeignKey("jobs.id"))
+    application_id = Column(String(36), ForeignKey("applications.id"), nullable=True)
+    status         = Column(String, default="pending")
+    message        = Column(Text, nullable=True)
+    boost_applied  = Column(Boolean, default=False)
+    created_at     = now()
+    updated_at     = Column(DateTime, onupdate=datetime.utcnow)
+
+
+class InsiderReferralMonthlyLimit(Base):
+    __tablename__ = "insider_referral_limits"
+    id          = uuid_pk()
+    insider_id  = Column(String(36), ForeignKey("users.id"))
+    month       = Column(String(7))
+    count       = Column(Integer, default=0)
+    created_at  = now()
