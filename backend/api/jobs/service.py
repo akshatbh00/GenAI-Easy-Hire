@@ -243,6 +243,12 @@ def approve_job(job_id, recruiter_id, db):
     rec = db.query(Recruiter).filter(Recruiter.user_id == recruiter_id).first()
     if not rec or rec.company_id != job.company_id:
         raise HTTPException(403, "Not authorized")
+    # trigger job alerts
+    try:
+        notify_matching_candidates(job_id, db)
+    except Exception as e:
+        logger.error(f"Job alert failed: {e}")
+    #triggered
 
     job.status      = JobStatus.LIVE
     job.approved_at = datetime.utcnow()
@@ -283,3 +289,44 @@ def close_job(job_id, db):
     db.refresh(job)
 
     return job
+
+
+def notify_matching_candidates(job_id: str, db: Session):
+    """
+    After job goes LIVE — find matching candidates and notify them.
+    Called from approve_job.
+    """
+    from models import User, Resume, InAppNotification, UserRole
+    from uuid import uuid4
+
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        return
+
+    # find jobseekers with matching preferences
+    users = db.query(User).filter(
+        User.role      == UserRole.JOBSEEKER,
+        User.is_active == True,
+        User.job_pref.isnot(None),
+    ).all()
+
+    notified = 0
+    for user in users:
+        prefs  = user.job_pref or {}
+        titles = [t.lower() for t in prefs.get("titles", [])]
+        job_t  = job.title.lower()
+
+        # check if job matches user preferences
+        matches = any(t in job_t or job_t in t for t in titles) if titles else True
+
+        if matches:
+            db.add(InAppNotification(
+                id=str(uuid4()),
+                user_id=str(user.id),
+                message=f"New job alert: {job.title} at {job.company.name if job.company else 'a company'} — matches your profile!",
+                stage="job_alert",
+            ))
+            notified += 1
+
+    db.commit()
+    logger.info(f"Job alerts sent to {notified} candidates for {job.title}")

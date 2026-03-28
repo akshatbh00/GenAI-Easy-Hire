@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 from config import settings
 
 celery_app = Celery(
@@ -10,6 +11,7 @@ celery_app = Celery(
         "workers.matching_tasks",
         "workers.notification_tasks",
         "workers.benchmark_tasks",
+        "workers.scraper_tasks",        # ← add this
     ]
 )
 
@@ -20,16 +22,17 @@ celery_app.conf.update(
     timezone="Asia/Kolkata",
     enable_utc=True,
     task_track_started=True,
-    worker_prefetch_multiplier=1,    # fairness for long tasks
+    worker_prefetch_multiplier=1,
     task_acks_late=True,
 )
-
-# Added in the bottom of existing celery_app.py
-from celery.schedules import crontab
 
 celery_app.conf.beat_schedule = {
     "nightly-benchmark-refresh": {
         "task":     "workers.benchmark_tasks.nightly_benchmark_refresh",
-        "schedule": crontab(hour=2, minute=0),   # 2 AM IST
+        "schedule": crontab(hour=2, minute=0),
+    },
+    "scrape-adzuna-every-6-hours": {
+        "task":     "workers.scraper_tasks.scrape_adzuna_jobs",
+        "schedule": crontab(hour="*/6"),
     },
 }

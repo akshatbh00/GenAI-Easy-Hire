@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
 
+    # Adzuna
+    ADZUNA_APP_ID:  str = ""
+    ADZUNA_APP_KEY: str = ""
+    ADZUNA_COUNTRY: str = "in"
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
