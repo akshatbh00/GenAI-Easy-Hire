@@ -21,3 +21,6 @@ api_router.include_router(users_router)
 api_router.include_router(admin_router)
 api_router.include_router(referrals_router)
 api_router.include_router(insider_router)
+
+from api.karen.routes import router as karen_router
+api_router.include_router(karen_router)

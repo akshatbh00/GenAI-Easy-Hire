@@ -256,3 +256,16 @@ class InsiderReferralMonthlyLimit(Base):
     month       = Column(String(7))
     count       = Column(Integer, default=0)
     created_at  = now()
+
+
+#KAREN
+class KarenMemory(Base):
+    """Persistent conversation memory for KAREN AI agent."""
+    __tablename__ = "karen_memory"
+    id             = uuid_pk()
+    user_id        = Column(String(36), ForeignKey("users.id"), unique=True)
+    messages       = Column(JSON, default=list)   # last 10 messages
+    summary        = Column(Text, nullable=True)  # summarized older context
+    total_messages = Column(Integer, default=0)
+    created_at     = now()
+    updated_at     = Column(DateTime, onupdate=datetime.utcnow)

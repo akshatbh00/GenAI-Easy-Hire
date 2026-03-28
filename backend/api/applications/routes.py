@@ -96,3 +96,23 @@ def _enrich(app) -> ApplicationOut:
         job_title=app.job.title if app.job else None,
         company_name=app.job.company.name if app.job and app.job.company else None,
     )
+
+
+# ── Quick Apply ───────────────────────────────────────────────────────────
+@router.post("/quick-apply/{job_id}", response_model=ApplicationOut, status_code=201)
+def quick_apply(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    One-click apply — uses active resume automatically.
+    No form needed. Single endpoint call.
+    """
+    app = service.apply_to_job(
+        user_id=str(current_user.id),
+        job_id=job_id,
+        resume_id=None,   # auto-picks active resume
+        db=db,
+    )
+    return _enrich(app)
