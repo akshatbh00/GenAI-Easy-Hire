@@ -16,6 +16,21 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 # ── Dependency: get current user from JWT ──────────────────────────────────
 
+# def get_current_user(
+#     token: str = Depends(oauth2_scheme),
+#     db: Session = Depends(get_db),
+# ):
+
+    # payload = service.decode_token(token)
+    # user_id = payload.get("sub")
+    # if not user_id:
+    #     raise HTTPException(status_code=401, detail="Invalid token payload")
+    # user = service.get_user_by_id(db, UUID(user_id))
+    # if not user:
+    #     raise HTTPException(status_code=404, detail="User not found")
+    # return user
+
+#after adding the referral code
 def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
@@ -24,11 +39,10 @@ def get_current_user(
     user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status_code=401, detail="Invalid token payload")
-    user = service.get_user_by_id(db, UUID(user_id))
+    user = service.get_user_by_id(db, user_id)  # ← pass as string, not UUID
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
-
 
 def require_recruiter(current_user=Depends(get_current_user)):
     if current_user.role not in ("recruiter", "admin"):
@@ -41,6 +55,7 @@ def require_admin(current_user=Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
+#till here
 
 # ── Routes ─────────────────────────────────────────────────────────────────
 
@@ -53,6 +68,11 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         full_name=payload.full_name,
         role=payload.role,
     )
+    # track referral signup
+    if payload.referral_code:
+        from api.referrals.service import track_signup
+        track_signup(payload.referral_code, user.id, db)
+
     token = service.create_access_token(user.id, user.role)
     return TokenResponse(
         access_token=token,
@@ -60,7 +80,6 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         role=user.role,
         tier=user.tier,
     )
-
 
 @router.post("/login", response_model=TokenResponse)
 def login(
@@ -96,3 +115,13 @@ def onboarding(
         "type": payload.job_type,
     }
     return service.update_job_preferences(db, current_user.id, prefs)
+
+
+# #adding the refferals
+# # In RegisterRequest schema (api/auth/schemas.py) add:
+# referral_code: Optional[str] = None
+
+# # In register route, after creating user add:
+# if payload.referral_code:
+#     from api.referrals.service import track_signup
+#     track_signup(payload.referral_code, user.id, db)

@@ -24,7 +24,7 @@ celery_app.conf.update(
     task_acks_late=True,
 )
 
-# Add at the bottom of your existing celery_app.py
+# Added in the bottom of existing celery_app.py
 from celery.schedules import crontab
 
 celery_app.conf.beat_schedule = {

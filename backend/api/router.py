@@ -17,3 +17,7 @@ api_router.include_router(applications_router)
 api_router.include_router(companies_router)
 api_router.include_router(users_router)
 api_router.include_router(admin_router)
+
+#add the referalls
+from api.referrals.routes import router as referrals_router
+api_router.include_router(referrals_router)

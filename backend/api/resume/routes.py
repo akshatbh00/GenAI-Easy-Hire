@@ -29,30 +29,33 @@ async def upload_resume(
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(400, "Only PDF and DOCX are supported")
 
-    resume_id = uuid4()
+    resume_id = str(uuid4())
     file_key  = f"resumes/{resume_id}/{file.filename}"
     content   = await file.read()
 
     upload_file(file_key, content)
 
-    # deactivate previous resumes for this user
     db.query(Resume).filter(
-        Resume.user_id == current_user.id,
+        Resume.user_id == str(current_user.id),
         Resume.is_active == True,
     ).update({"is_active": False})
 
     resume = Resume(
         id=resume_id,
-        user_id=current_user.id,
+        user_id=str(current_user.id),
         file_path=file_key,
     )
     db.add(resume)
     db.commit()
 
-    process_resume.delay(str(resume_id))
+    # run pipeline directly in dev (no Celery needed)
+    try:
+        from ai.resume.pipeline import ResumePipeline
+        ResumePipeline().run(resume_id, db)
+    except Exception as e:
+        print(f"Pipeline error (non-blocking): {e}")
 
-    return {"resume_id": str(resume_id), "status": "processing"}
-
+    return {"resume_id": resume_id, "status": "processed"}
 
 @router.get("/me")
 def my_resume(

@@ -20,7 +20,7 @@ except ImportError:
 
 def uuid_pk():
     return Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-
+    
 def now():
     return Column(DateTime, default=datetime.utcnow)
 
@@ -209,3 +209,15 @@ class InAppNotification(Base):
     message        = Column(Text)
     is_read        = Column(Boolean, default=False)
     created_at     = now()
+#adding referalls
+class Referral(Base):
+    __tablename__ = "referrals"
+    id              = uuid_pk()
+    referrer_id     = Column(String(36), ForeignKey("users.id"))  # who shared
+    referred_id     = Column(String(36), ForeignKey("users.id"), nullable=True)  # who signed up
+    referral_code   = Column(String(20), unique=True, index=True)
+    job_id          = Column(String(36), ForeignKey("jobs.id"), nullable=True)  # optional job referral
+    status          = Column(String, default="pending")  # pending/signed_up/applied/hired
+    reward_granted  = Column(Boolean, default=False)
+    created_at      = now()
+    updated_at      = Column(DateTime, onupdate=datetime.utcnow)

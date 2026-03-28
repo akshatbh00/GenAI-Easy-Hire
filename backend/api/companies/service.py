@@ -15,7 +15,7 @@ def create_company(payload: CompanyCreateRequest, db: Session) -> Company:
         raise HTTPException(409, "Company slug already taken")
 
     company = Company(
-        id=uuid4(),
+        id=str(uuid4()),
         name=payload.name,
         slug=payload.slug,
         website=payload.website,
@@ -77,7 +77,7 @@ def invite_recruiter(
 
     # upgrade role
     user.role = UserRole.RECRUITER
-    rec = Recruiter(id=uuid4(), user_id=user.id, company_id=company_id)
+    rec = Recruiter(id=str(uuid4()), user_id=str(user.id), company_id=str(company_id))
     db.add(rec)
     db.commit()
     db.refresh(rec)

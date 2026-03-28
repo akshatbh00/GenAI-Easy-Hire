@@ -45,3 +45,12 @@ def get_history(app_id: str, db: Session = Depends(get_db)):
         }
         for h in history
     ]
+
+#adding the refferalsss
+# In RegisterRequest schema (api/auth/schemas.py) add:
+referral_code: Optional[str] = None
+
+# In register route, after creating user add:
+if payload.referral_code:
+    from api.referrals.service import track_signup
+    track_signup(payload.referral_code, user.id, db)

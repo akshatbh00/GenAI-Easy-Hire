@@ -14,13 +14,13 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 # ── Password helpers ───────────────────────────────────────────────────────
+import bcrypt
 
 def hash_password(plain: str) -> str:
-    return pwd_context.hash(plain[:72])
-    
-def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    return bcrypt.hashpw(plain[:72].encode(), bcrypt.gensalt()).decode()
 
+def verify_password(plain: str, hashed: str) -> bool:
+    return bcrypt.checkpw(plain[:72].encode(), hashed.encode())
 
 # ── JWT helpers ────────────────────────────────────────────────────────────
 
@@ -54,9 +54,8 @@ def get_user_by_email(db: Session, email: str) -> Optional[User]:
     return db.query(User).filter(User.email == email).first()
 
 
-def get_user_by_id(db: Session, user_id: UUID) -> Optional[User]:
-    return db.query(User).filter(User.id == user_id).first()
-
+def get_user_by_id(db: Session, user_id: str):
+    return db.query(User).filter(User.id == str(user_id)).first()
 
 def create_user(db: Session, email: str, password: str,
                 full_name: str, role: UserRole) -> User:

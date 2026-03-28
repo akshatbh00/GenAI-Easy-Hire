@@ -4,7 +4,6 @@ Full audit trail. Triggers notifications on every transition.
 """
 from sqlalchemy.orm import Session
 from models import Application, StageHistory, PipelineStage, SelectedPoolEntry, Resume
-from workers.notification_tasks import notify_stage_change
 import uuid
 from datetime import datetime
 from loguru import logger
@@ -51,7 +50,7 @@ class PipelineService:
         ))
 
         app.current_stage = to_stage
-        app.updated_at = datetime.utcnow()
+        app.updated_at    = datetime.utcnow()
 
         if to_stage in STAGE_ORDER:
             curr_idx    = STAGE_ORDER.index(to_stage)
@@ -61,16 +60,33 @@ class PipelineService:
 
         if to_stage == PipelineStage.SELECTED:
             self._add_to_selected_pool(app, db)
+            try:
+                from api.referrals.service import track_hired
+                track_hired(app.user_id, db)
+            except Exception:
+                pass
 
         db.commit()
         db.refresh(app)
 
-        notify_stage_change.delay(
-            str(app.user_id), str(application_id),
-            to_stage.value, notes
-        )
+        # notifications — works with Celery in prod, skips silently in dev
+        self._notify(app, application_id, to_stage, notes)
+
         logger.info(f"App {application_id}: {from_stage} → {to_stage}")
         return app
+
+    def _notify(self, app, application_id, to_stage, notes):
+        try:
+            from workers.notification_tasks import notify_stage_change
+            notify_stage_change.delay(
+                str(app.user_id),
+                str(application_id),
+                to_stage.value,
+                notes,
+            )
+        except Exception:
+            # Celery not running in dev — log and skip
+            logger.debug(f"Notification skipped (no Celery): {to_stage.value}")
 
     def get_pipeline_for_job(self, job_id: str, db: Session) -> dict:
         apps = db.query(Application).filter(Application.job_id == job_id).all()

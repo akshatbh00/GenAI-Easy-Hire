@@ -3,13 +3,12 @@ from uuid import UUID
 from typing import Optional
 from models import UserRole, SubscriptionTier
 
-
 class RegisterRequest(BaseModel):
-    email: EmailStr
-    password: str = Field(min_length=8)
-    full_name: str = Field(min_length=2)
-    role: UserRole = UserRole.JOBSEEKER
-
+    email:         EmailStr
+    password:      str = Field(min_length=8)
+    full_name:     str = Field(min_length=2)
+    role:          UserRole = UserRole.JOBSEEKER
+    referral_code: Optional[str] = None
 
 class LoginRequest(BaseModel):
     email: EmailStr
