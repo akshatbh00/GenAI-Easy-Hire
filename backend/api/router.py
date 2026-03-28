@@ -24,3 +24,6 @@ api_router.include_router(insider_router)
 
 from api.karen.routes import router as karen_router
 api_router.include_router(karen_router)
+
+from api.salary.routes import router as salary_router
+api_router.include_router(salary_router)

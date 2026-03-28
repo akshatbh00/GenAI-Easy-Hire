@@ -291,3 +291,22 @@ class RoundClearerEntry(Base):
     round_cleared = Column(String)
     embedding     = Column(Text)
     created_at    = now()
+
+class SalaryInsight(Base):
+    """
+    Aggregated salary data by role + city + experience.
+    Populated from job postings automatically.
+    """
+    __tablename__ = "salary_insights"
+    id              = uuid_pk()
+    job_title       = Column(String, nullable=False, index=True)
+    location        = Column(String, nullable=False, index=True)
+    experience_min  = Column(Integer, default=0)
+    experience_max  = Column(Integer, default=50)
+    salary_min      = Column(Integer)
+    salary_max      = Column(Integer)
+    salary_avg      = Column(Integer)
+    sample_size     = Column(Integer, default=1)
+    source          = Column(String, default="internal")  # internal/glassdoor/etc
+    created_at      = now()
+    updated_at      = Column(DateTime, onupdate=datetime.utcnow)
