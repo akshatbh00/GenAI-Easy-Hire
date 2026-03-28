@@ -55,6 +55,13 @@ class SubscriptionTier(str, enum.Enum):
     FREE    = "free"
     PREMIUM = "premium"
 
+class JobStatus(str, enum.Enum):
+    DRAFT            = "draft"
+    PENDING_APPROVAL = "pending_approval"
+    LIVE             = "live"
+    CLOSED           = "closed"
+    REJECTED         = "rejected"
+
 
 # ── Models ─────────────────────────────────────────────────────────────────
 
@@ -127,21 +134,27 @@ class ResumeChunk(Base):
 
 class Job(Base):
     __tablename__ = "jobs"
-    id           = uuid_pk()
-    company_id   = Column(String(36), ForeignKey("companies.id"))
-    title        = Column(String, nullable=False)
-    description  = Column(Text)
-    requirements = Column(JSON)
-    job_type     = Column(SAEnum(JobType))
-    location     = Column(String)
-    remote_ok    = Column(Boolean, default=False)
-    salary_min   = Column(Integer)
-    salary_max   = Column(Integer)
-    embedding    = Column(Text)
-    is_active    = Column(Boolean, default=True)
-    source       = Column(String, default="internal")
-    source_url   = Column(String)
-    created_at   = now()
+    id               = uuid_pk()
+    company_id       = Column(String(36), ForeignKey("companies.id"))
+    title            = Column(String, nullable=False)
+    description      = Column(Text)
+    requirements     = Column(JSON)
+    job_type         = Column(SAEnum(JobType))
+    location         = Column(String)
+    remote_ok        = Column(Boolean, default=False)
+    salary_min       = Column(Integer)
+    salary_max       = Column(Integer)
+    embedding        = Column(Text)
+    is_active        = Column(Boolean, default=False)
+    source           = Column(String, default="internal")
+    source_url       = Column(String)
+    status           = Column(SAEnum(JobStatus), default=JobStatus.PENDING_APPROVAL)
+    budget_approved  = Column(Boolean, default=False)
+    headcount        = Column(Integer, nullable=True)
+    approved_by      = Column(String(36), ForeignKey("users.id"), nullable=True)
+    approved_at      = Column(DateTime, nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    created_at       = now()
 
     company      = relationship("Company", back_populates="jobs")
     applications = relationship("Application", back_populates="job")
@@ -258,14 +271,23 @@ class InsiderReferralMonthlyLimit(Base):
     created_at  = now()
 
 
-#KAREN
 class KarenMemory(Base):
-    """Persistent conversation memory for KAREN AI agent."""
     __tablename__ = "karen_memory"
     id             = uuid_pk()
     user_id        = Column(String(36), ForeignKey("users.id"), unique=True)
-    messages       = Column(JSON, default=list)   # last 10 messages
-    summary        = Column(Text, nullable=True)  # summarized older context
+    messages       = Column(JSON, default=list)
+    summary        = Column(Text, nullable=True)
     total_messages = Column(Integer, default=0)
     created_at     = now()
     updated_at     = Column(DateTime, onupdate=datetime.utcnow)
+
+
+class RoundClearerEntry(Base):
+    __tablename__ = "round_clearers"
+    id            = uuid_pk()
+    resume_id     = Column(String(36), ForeignKey("resumes.id"))
+    job_id        = Column(String(36), ForeignKey("jobs.id"))
+    job_title     = Column(String)
+    round_cleared = Column(String)
+    embedding     = Column(Text)
+    created_at    = now()

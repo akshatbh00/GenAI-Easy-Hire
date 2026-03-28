@@ -21,6 +21,12 @@ STAGE_ORDER = [
 
 TERMINAL_STAGES = {PipelineStage.ATS_REJECTED, PipelineStage.WITHDRAWN}
 
+ROUND_STAGES = {
+    PipelineStage.ROUND_1, PipelineStage.ROUND_2,
+    PipelineStage.ROUND_3, PipelineStage.HR_ROUND,
+    PipelineStage.OFFER,   PipelineStage.SELECTED,
+}
+
 
 class PipelineService:
 
@@ -52,12 +58,21 @@ class PipelineService:
         app.current_stage = to_stage
         app.updated_at    = datetime.utcnow()
 
+        # track highest stage
         if to_stage in STAGE_ORDER:
             curr_idx    = STAGE_ORDER.index(to_stage)
             highest_idx = STAGE_ORDER.index(app.highest_stage) if app.highest_stage in STAGE_ORDER else 0
             if curr_idx > highest_idx:
                 app.highest_stage = to_stage
 
+        # add to round clearer pool
+        if to_stage in ROUND_STAGES:
+            try:
+                self._add_to_round_clearer_pool(app, to_stage.value, db)
+            except Exception:
+                pass
+
+        # add to selected pool + track referral
         if to_stage == PipelineStage.SELECTED:
             self._add_to_selected_pool(app, db)
             try:
@@ -69,7 +84,7 @@ class PipelineService:
         db.commit()
         db.refresh(app)
 
-        # notifications — works with Celery in prod, skips silently in dev
+        # notifications
         self._notify(app, application_id, to_stage, notes)
 
         logger.info(f"App {application_id}: {from_stage} → {to_stage}")
@@ -85,13 +100,12 @@ class PipelineService:
                 notes,
             )
         except Exception:
-            # Celery not running in dev — log and skip
             logger.debug(f"Notification skipped (no Celery): {to_stage.value}")
 
     def get_pipeline_for_job(self, job_id: str, db: Session) -> dict:
-        apps = db.query(Application).filter(Application.job_id == job_id).all()
+        apps   = db.query(Application).filter(Application.job_id == job_id).all()
         kanban = {stage.value: [] for stage in PipelineStage}
-        kanban["insider_referred"] = []   # ← new section
+        kanban["insider_referred"] = []
 
         for app in apps:
             entry = {
@@ -102,11 +116,10 @@ class PipelineService:
                 "applied_at":     app.created_at.isoformat(),
                 "is_referred":    bool(app.notes and "INSIDER_REFERRED" in (app.notes or "")),
             }
-        kanban[app.current_stage.value].append(entry)
+            kanban[app.current_stage.value].append(entry)
 
-        # also add to referred section if insider referred
-        if app.notes and "INSIDER_REFERRED" in app.notes:
-            kanban["insider_referred"].append(entry)
+            if app.notes and "INSIDER_REFERRED" in app.notes:
+                kanban["insider_referred"].append(entry)
 
         return kanban
 
@@ -124,5 +137,25 @@ class PipelineService:
                 resume_id=app.resume_id,
                 job_id=app.job_id,
                 job_title=app.job.title if app.job else "",
+                embedding=resume.embedding,
+            ))
+
+    def _add_to_round_clearer_pool(self, app: Application, to_stage: str, db: Session):
+        from models import RoundClearerEntry
+        resume = db.query(Resume).filter(Resume.id == app.resume_id).first()
+        if not resume or not resume.embedding:
+            return
+        existing = db.query(RoundClearerEntry).filter(
+            RoundClearerEntry.resume_id     == app.resume_id,
+            RoundClearerEntry.job_id        == app.job_id,
+            RoundClearerEntry.round_cleared == to_stage,
+        ).first()
+        if not existing:
+            db.add(RoundClearerEntry(
+                id=str(uuid.uuid4()),
+                resume_id=app.resume_id,
+                job_id=app.job_id,
+                job_title=app.job.title if app.job else "",
+                round_cleared=to_stage,
                 embedding=resume.embedding,
             ))

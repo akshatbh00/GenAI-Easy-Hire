@@ -108,3 +108,75 @@ def get_match_breakdown(
     Shows skills, experience, location match separately.
     """
     return service.get_match_breakdown(job_id, str(current_user.id), db)
+
+#Finance Approval
+from pydantic import BaseModel as PydanticBase
+from typing import Optional as Opt
+
+class ApprovalAction(PydanticBase):
+    reason: Opt[str] = None   # for rejection
+
+
+@router.get("/pending", dependencies=[Depends(require_recruiter)])
+def pending_approvals(
+    db: Session = Depends(get_db),
+    _=Depends(require_recruiter),
+):
+    """List all jobs pending finance/admin approval."""
+    jobs = service.get_pending_approvals(db)
+    return [
+        {
+            "id":         str(j.id),
+            "title":      j.title,
+            "status":     j.status,
+            "created_at": j.created_at.isoformat(),
+        }
+        for j in jobs
+    ]
+
+
+@router.post("/{job_id}/approve")
+def approve_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_recruiter),
+):
+    """
+    Finance/Admin approves a job — makes it LIVE and visible to candidates.
+    Triggers job alerts for matching candidates.
+    """
+    job = service.approve_job(job_id, str(current_user.id), db)
+    return {
+        "id":          str(job.id),
+        "title":       job.title,
+        "status":      job.status,
+        "approved_at": job.approved_at.isoformat(),
+        "message":     f"Job '{job.title}' is now LIVE — candidates can apply",
+    }
+
+
+@router.post("/{job_id}/reject")
+def reject_job(
+    job_id: str,
+    payload: ApprovalAction,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_recruiter),
+):
+    """Reject a job posting — budget not confirmed."""
+    job = service.reject_job(
+        job_id, str(current_user.id),
+        payload.reason or "Budget not approved",
+        db,
+    )
+    return {"id": str(job.id), "status": job.status}
+
+
+@router.post("/{job_id}/close")
+def close_job(
+    job_id: str,
+    db: Session = Depends(get_db),
+    _=Depends(require_recruiter),
+):
+    """Close a job — position filled or cancelled."""
+    job = service.close_job(job_id, db)
+    return {"id": str(job.id), "status": job.status}

@@ -213,3 +213,73 @@ def get_match_breakdown(
             "location_weight":   "20%",
         }
     }
+
+
+#to show live jobs to candidates
+def list_jobs(db, job_type=None, location=None, remote_ok=None, search=None, skip=0, limit=20):
+    q = db.query(Job).filter(
+        Job.is_active == True,
+        Job.status    == JobStatus.LIVE,   # ← only show approved jobs
+    )
+    # rest stays the same
+
+from datetime import datetime
+from models import Job, Company, Recruiter, JobStatus
+from fastapi import HTTPException
+
+#to show pending jobs to recruiters
+def get_pending_approvals(db):
+    return db.query(Job).filter(
+        Job.status == JobStatus.PENDING_APPROVAL,
+    ).order_by(Job.created_at.asc()).all()
+
+
+#to approve jobs
+def approve_job(job_id, recruiter_id, db):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    rec = db.query(Recruiter).filter(Recruiter.user_id == recruiter_id).first()
+    if not rec or rec.company_id != job.company_id:
+        raise HTTPException(403, "Not authorized")
+
+    job.status      = JobStatus.LIVE
+    job.approved_at = datetime.utcnow()
+    db.commit()
+    db.refresh(job)
+
+    # TODO: trigger job alerts for matching candidates
+
+    return job
+
+
+#to reject jobs
+def reject_job(job_id, recruiter_id, reason, db):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    rec = db.query(Recruiter).filter(Recruiter.user_id == recruiter_id).first()
+    if not rec or rec.company_id != job.company_id:
+        raise HTTPException(403, "Not authorized")
+
+    job.status      = JobStatus.REJECTED
+    job.rejection_reason = reason
+    db.commit()
+    db.refresh(job)
+
+    return job
+
+
+#to close jobs
+def close_job(job_id, db):
+    job = db.query(Job).filter(Job.id == job_id).first()
+    if not job:
+        raise HTTPException(404, "Job not found")
+
+    job.status = JobStatus.CLOSED
+    db.commit()
+    db.refresh(job)
+
+    return job

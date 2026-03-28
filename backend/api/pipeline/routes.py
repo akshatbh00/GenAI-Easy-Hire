@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from database import get_db
 from api.pipeline.service import PipelineService
-from api.auth.routes import require_recruiter
+from api.auth.routes import require_recruiter, get_current_user
 from models import PipelineStage
 
 router = APIRouter(prefix="/pipeline", tags=["Pipeline"])
@@ -52,3 +52,17 @@ def get_history(app_id: str, db: Session = Depends(get_db)):
         }
         for h in history
     ]
+# adding round benchmark
+@router.get("/{resume_id}/round-benchmark")
+def round_benchmark(
+    resume_id: str,
+    job_title: str = Query(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Per-round benchmark — 
+    'To clear Round 1 add X, to get selected add Y'
+    """
+    from ai.benchmark.round_comparator import RoundComparator
+    return RoundComparator().compare(resume_id, job_title, db)
